@@ -33,11 +33,13 @@ public class App
 
 		return Nd4j.create(yArray, new int[]{1,inputLayer.rows()});
 	}
+	
+
 
 	public static void main( String[] args )
 	{
 		int inputLayerSize = 2;
-		int trainingSetCount =44;
+		int trainingSetCount =35;
 
 		INDArray inputLayer =  buildInputs(inputLayerSize, trainingSetCount);
 		INDArray y = buildOutputs(inputLayer);
@@ -46,20 +48,19 @@ public class App
 		System.out.println(inputLayer);
 		System.out.println("Outputs:");
 		System.out.println(y);
-
 		System.out.println("");
+		
 		double inputScale = (Double) inputLayer.maxNumber();
 		double outputScale = (Double) y.maxNumber();
-		System.out.println(inputScale + " | " + outputScale);
 		inputLayer = inputLayer.div(inputScale);
 		y = y.div(outputScale);   //max in matrix y is scale
 
 		
 		INDArray yHat, cost;
 
-		NeuralNet myANN = new NeuralNet();
+		NeuralNet myANN = new NeuralNet( inputScale, outputScale);
 
-		for(int i = 0; i < 70; i++) {
+		for(int i = 0; i < 2000; i++) {
 				yHat = myANN.forwardProp(inputLayer);
 				System.out.println("Scaled output:");
 				System.out.println(yHat.mul(outputScale));
@@ -70,29 +71,13 @@ public class App
 
 		}
 
-		INDArray inputLayer2 = Nd4j.create(new double[]{1.0, 2.0}, new int[]{1, inputLayerSize});
-		inputLayer2 = inputLayer2.div(inputScale);
-
-		yHat = myANN.forwardProp(inputLayer2);
-		System.out.println("Scaled output layer 2:");
-		System.out.println(yHat.mul(outputScale));
-		System.out.println("");
+		myANN.testData(new double[]{1.0, 1.0});
 		
-		INDArray inputLayer3 = Nd4j.create(new double[]{2.0, 4.0}, new int[]{1, inputLayerSize});
-		inputLayer3 = inputLayer3.div(inputScale);
-
-		yHat = myANN.forwardProp(inputLayer3);
-		System.out.println("Scaled output layer 3:");
-		System.out.println(yHat.mul(outputScale));
-		System.out.println("");
+		myANN.testData(new double[]{1.0, 2.0});		
 		
-		INDArray inputLayer4 = Nd4j.create(new double[]{3.0, 3.0}, new int[]{1, inputLayerSize});
-		inputLayer4 = inputLayer4.div(inputScale);
-
-		yHat = myANN.forwardProp(inputLayer4);
-		System.out.println("Scaled output layer 4:");
-		System.out.println(yHat.mul(outputScale));
-		System.out.println("");
+		myANN.testData(new double[]{3.0, 3.0});
+		
+		myANN.testData(new double[]{8.0, 9.0});
 
 	}
 }
