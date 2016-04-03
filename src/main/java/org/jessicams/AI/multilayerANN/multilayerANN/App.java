@@ -98,7 +98,7 @@ public class App
 		
 
 		}
-
+		//plot(inputLayer,myANN.x,getFunctionValues(x,fn),networkPredictions);
 		myANN.testData(new double[]{1.0, 4.0, 10.0});
 		myANN.testData(new double[]{2.0, 2.0, 10.0});
 		myANN.testData(new double[]{2.0, 1.0, 10.0});		
