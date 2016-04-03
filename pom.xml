@@ -13,6 +13,8 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <nd4j.version>0.4-rc3.8</nd4j.version>
+    <dl4j.version>0.4-rc3.8</dl4j.version>
+    <canova.version>0.0.0.14</canova.version>
   </properties>
 
   <dependencies>
@@ -41,7 +43,29 @@
       <artifactId>nd4j-x86</artifactId>
       <version>${nd4j.version}</version>
     </dependency>
+        
+            <dependency>
+            <groupId>org.deeplearning4j</groupId>
+            <artifactId>deeplearning4j-core</artifactId>
+            <version>${dl4j.version}</version>
+        </dependency>
     
+            <dependency>
+            <artifactId>canova-nd4j-image</artifactId>
+            <groupId>org.nd4j</groupId>
+            <version>${canova.version}</version>
+        </dependency>
+        <dependency>
+            <artifactId>canova-nd4j-codec</artifactId>
+            <groupId>org.nd4j</groupId>
+            <version>${canova.version}</version>
+        </dependency>
+            <!-- Used in the RegressionMathFunctions example -->
+        <dependency>
+            <groupId>jfree</groupId>
+            <artifactId>jfreechart</artifactId>
+            <version>1.0.13</version>
+        </dependency>
     
   </dependencies>
 </project>
