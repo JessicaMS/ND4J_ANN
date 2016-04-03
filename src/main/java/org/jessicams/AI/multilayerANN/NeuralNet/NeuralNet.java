@@ -25,17 +25,17 @@ public class NeuralNet {
 	
 	public NeuralNet(double inputScale, double outputScale) {
 		this.outputLayerSize = 1;
-		this.hiddenLayerSize = 11;
-		this.hiddenLayer2Size = 11;
-		this.inputLayerSize = 2;
+		this.hiddenLayerSize = 6;
+		this.hiddenLayer2Size = 6;
+		this.inputLayerSize = 3;
 		
 		this.inputScale = inputScale;
 		this.outputScale = outputScale;
 
 		
 		this.w1 = Nd4j.rand(new int []{inputLayerSize, hiddenLayerSize});
-		this.w2 = Nd4j.rand(new int []{hiddenLayerSize, hiddenLayer2Size});
-		this.w3 = Nd4j.rand(new int[]{hiddenLayer2Size, outputLayerSize});
+		//this.w2 = Nd4j.rand(new int []{hiddenLayerSize, hiddenLayer2Size});
+		this.w2 = Nd4j.rand(new int[]{hiddenLayer2Size, outputLayerSize});
 	}
 	
 	public void testData(double[] testingInput) {
@@ -56,9 +56,7 @@ public class NeuralNet {
 	}
 	
 	public void updateWeights(INDArray change1, INDArray change2, INDArray change3) {
-			
-		double learningFactor = 0.5;
-		
+		double learningFactor = 0.01;
 		
 		w1 = w1.sub(change1.mul(learningFactor));
 		w2 = w2.sub(change2.mul(learningFactor));
@@ -84,8 +82,7 @@ public class NeuralNet {
 		//C_{MST}(W, B, S^r, E^r) = 0.5\sum\limits_j (a^L_j - E^r_j)^2
         INDArray J = (costMatrix.mul(costMatrix)).mul(0.5);
         //this.describeMatrix("Quadratic Cost per record=", J);
-        totalCost = (double)J.sumNumber().doubleValue();
-        System.out.println("Total cost: " + totalCost);
+
 		return J;
 	}
 	
@@ -111,6 +108,8 @@ public class NeuralNet {
 		this.updateWeights(dJdW1, dJdW2, dJdW3);
 		
 	}
+	
+	
 	
     public INDArray expi(INDArray toExp) {
         INDArray flattened = toExp.ravel();
