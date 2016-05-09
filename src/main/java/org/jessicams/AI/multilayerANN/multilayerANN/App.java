@@ -36,10 +36,10 @@ public class App
 		System.out.println(matrix);
 	}
 
-	public static RecordReader readData() {
+	public static RecordReader readData(String dataFilePath) {
 		RecordReader rr = new CSVRecordReader();
 		try {
-			rr.initialize(new FileSplit(new File("src/main/resources/adding.csv")));	
+			rr.initialize(new FileSplit(new File(dataFilePath)));	
 		} catch (Exception e) {
 			System.out.println("Read file failed");
 			System.out.println(e.getMessage());
@@ -62,41 +62,43 @@ public class App
 	}
 	
 	
+	
+	
 
 
 	public static void main( String[] args )  throws Exception
 	{
-		int numEpochs = 200000;
+		int numEpochs = 5000;
 		int inputLayerSize = 3;
 		int trainingSetCount = 50;
-		int batchSize = 50;
-		int outputFreq = 2000;
+		int batchSize = 25;
+		int outputFreq = 100;
 		//
-		INDArray inputLayer;
+		//INDArray inputLayer;
 		INDArray y; 
 
-		RecordReader rr = readData();
-		inputLayer = inputLayerSingleBatch(rr, trainingSetCount, inputLayerSize);
+		RecordReader rr = readData("src/main/resources/adding_train.csv");
+		DataSetIterator trainIter = new RecordReaderDataSetIterator(rr,batchSize);
+		//DataSetIterator evalIter = new RecordReaderDataSetIterator(rr, )
+		//inputLayer = inputLayerSingleBatch(rr, trainingSetCount, inputLayerSize);
 
 //		describeMatrix("input Layer", inputLayer);
 //		describeMatrix("output Layer", y);
 		
 		INDArray cost;
-		NeuralNet myANN = new NeuralNet(rr, trainingSetCount);
+		NeuralNet myANN = new NeuralNet(trainIter, trainingSetCount);
 		
 		for(int i = 0; i < numEpochs; i++) {
 			//yHat = myANN.batchFit(batchSize, y);
-
-			cost = myANN.fitSingle();
+			cost = myANN.batchTrain();
+			//cost = myANN.fitSingle();
 			if (i % outputFreq == 0) {
 				System.out.println("Epoch: " + i);
 				System.out.println("Scaled output:");
 				System.out.println(myANN.getYHat().mul(myANN.getOutputScale()));
-				System.out.println("");
-		        System.out.println("Total cost: " + (double)cost.sumNumber().doubleValue());
+				System.out.println("Total cost: " + (double)cost.sumNumber().doubleValue() + "\n");
 			}
 		
-
 		}
 		//plot(inputLayer,myANN.x,getFunctionValues(x,fn),networkPredictions);
 		myANN.testData(new double[]{1.0, 4.0, 10.0});
