@@ -10,6 +10,7 @@ import org.canova.api.records.reader.impl.CSVRecordReader;
 import org.canova.api.split.FileSplit;
 import org.deeplearning4j.datasets.canova.RecordReaderDataSetIterator;
 import org.deeplearning4j.datasets.iterator.DataSetIterator;
+import org.deeplearning4j.eval.Evaluation;
 import org.jessicams.AI.multilayerANN.NeuralNet.*;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
@@ -61,37 +62,26 @@ public class App
 		return null;
 	}
 	
-	
-	
-	
-
 
 	public static void main( String[] args )  throws Exception
 	{
-		int numEpochs = 5000;
-		int inputLayerSize = 3;
-		int trainingSetCount = 50;
+		int numEpochs = 500;
+		int inputLayerSize = 2;
+		int outputLayerSize = 2;
 		int batchSize = 25;
-		int outputFreq = 100;
-		//
-		//INDArray inputLayer;
-		INDArray y; 
+		int outputFreq = 10;
 
-		RecordReader rr = readData("src/main/resources/adding_train.csv");
-		DataSetIterator trainIter = new RecordReaderDataSetIterator(rr,batchSize);
-		//DataSetIterator evalIter = new RecordReaderDataSetIterator(rr, )
+		RecordReader rr = readData("src/main/resources/classification/moon_data_train.csv");
+		DataSetIterator trainIter = new RecordReaderDataSetIterator(rr,batchSize, 0, 2);
+		rr = readData("src/main/resources/classification/moon_data_eval.csv");
+		DataSetIterator evalIter = new RecordReaderDataSetIterator(rr,batchSize, 0, 2);
 		//inputLayer = inputLayerSingleBatch(rr, trainingSetCount, inputLayerSize);
 
-//		describeMatrix("input Layer", inputLayer);
-//		describeMatrix("output Layer", y);
-		
 		INDArray cost;
-		NeuralNet myANN = new NeuralNet(trainIter, trainingSetCount);
+		NeuralNet myANN = new NeuralNet(trainIter, inputLayerSize, outputLayerSize);
 		
 		for(int i = 0; i < numEpochs; i++) {
-			//yHat = myANN.batchFit(batchSize, y);
 			cost = myANN.batchTrain();
-			//cost = myANN.fitSingle();
 			if (i % outputFreq == 0) {
 				System.out.println("Epoch: " + i);
 				System.out.println("Scaled output:");
@@ -101,11 +91,19 @@ public class App
 		
 		}
 		//plot(inputLayer,myANN.x,getFunctionValues(x,fn),networkPredictions);
-		myANN.testData(new double[]{1.0, 4.0, 10.0});
-		myANN.testData(new double[]{2.0, 2.0, 10.0});
-		myANN.testData(new double[]{2.0, 1.0, 10.0});		
-		myANN.testData(new double[]{1.0, 1.0, 10.0});
-		myANN.testData(new double[]{3.0, 3.0, 10.0});
+        System.out.println("Evaluate model....");
+        Evaluation eval = new Evaluation(outputLayerSize);
+        while(evalIter.hasNext()){
+            DataSet t = evalIter.next();
+            INDArray features = t.getFeatureMatrix();
+            INDArray labels = t.getLabels();
+            INDArray predicted = myANN.forwardProp(features);
+
+            eval.eval(labels, predicted);
+        }
+
+        //Print the evaluation statistics
+        System.out.println(eval.stats());
 
 	}
 
