@@ -17,41 +17,24 @@ public class NeuralNet {
 	private double inputScale, outputScale;
 	int trainingSetCount;
 	DataSetIterator iter;
+
 	
-	private int inputLayerSize;
-	private int hiddenLayer1Size;
-	//private int hiddenLayer2Size;
-	private int outputLayerSize;
+	private List<NeuronLayer> Layers = new ArrayList<NeuronLayer>();
 	
-	private List<INDArray> w = new ArrayList<INDArray>();
-	private List<INDArray> b = new ArrayList<INDArray>();
-	
-	private INDArray z2, a2, z3;//, a3, z4;
+	private INDArray z1, a1, z2, a2;
 	private INDArray yHat;
 	
 	public NeuralNet(DataSetIterator iter, int inputLayerSize, int outputLayerSize) {
-		//Seed so that each test is deterministic
-		int seedValue = 12;
-		this.inputLayerSize = inputLayerSize;
-		this.hiddenLayer1Size = 20;
-		//this.hiddenLayer2Size = 7;
-		this.outputLayerSize = outputLayerSize;
+		int seedValue = 12;  //constant seed so that each test is deterministic
+		int hiddenLayer1Size = 20;
 		
 		this.iter = iter;
 		calculateScale();
 		
-		
-		this.w.add(Nd4j.rand(new int []{inputLayerSize, hiddenLayer1Size}, seedValue));
-		//this.w.set(0, this.w.get(0).div(Math.sqrt((double)inputLayerSize)));
-		this.w.add(Nd4j.rand(new int []{hiddenLayer1Size, outputLayerSize}, seedValue));
-		//this.w.set(1, this.w.get(1).div(Math.sqrt((double)outputLayerSize)));
-		
-		this.b.add(Nd4j.zeros(hiddenLayer1Size));
-		describeMatrix("b1: ", this.b.get(0));
-		
-		this.b.add(Nd4j.zeros(outputLayerSize));
-		describeMatrix("b2: ", this.b.get(1));
-		//this.w.add(Nd4j.rand(new int []{hiddenLayer2Size, outputLayerSize}, seedValue));
+		Layers.add(new NeuronLayer(inputLayerSize, hiddenLayer1Size, seedValue));
+		Layers.get(0).setActivation(Activations.Function.Logistic);
+		Layers.add(new NeuronLayer(hiddenLayer1Size, outputLayerSize, seedValue));
+		Layers.get(1).setActivation(Activations.Function.Logistic);
 	}
 	
 	public void calculateScale() {
@@ -75,12 +58,9 @@ public class NeuralNet {
 				if (Math.abs((Double) inputLayer.maxNumber()) > this.inputScale) {
 					this.inputScale = Math.abs((Double) inputLayer.maxNumber());
 				}
-
-				//describeMatrix("inputLayer batch:", inputLayer.div(inputScale));
-				//describeMatrix("outputLayer batch:", outputLayer);	
 			}
 			
-			this.inputScale = 2.5;
+			this.inputScale = 2.5;										//TEMPORARY STATIC NUMBER, FIX
 			System.out.println("InputScale: " + this.inputScale);
 			System.out.println("OutputScale: " + this.outputScale);	
 		} catch (Exception e) {
@@ -145,19 +125,16 @@ public class NeuralNet {
 	public INDArray forwardProp(INDArray inputLayer) {
 
 		INDArray yHat;
-		z2 = inputLayer.mmul(w.get(0));//.addRowVector(b.get(0));
-		z2 = z2.addRowVector(b.get(0));
+		z1 = inputLayer.mmul(Layers.get(0).getW());
+		z1 = z1.addRowVector(Layers.get(0).getB());
+		a1 = Activations.getActivationValues(z1, Layers.get(0).getActivation());
 		
-		a2 = sigmoid(z2);
-		z3 = a2.mmul(w.get(1));//.addRowVector(b.get(1));
-		//describeMatrix("z3: ", z3);
-		z3 = z3.addRowVector(b.get(1));
-		//describeMatrix("z3 + b2: ", z3);
+		z2 = a1.mmul(Layers.get(1).getW());
+		z2 = z2.addRowVector(Layers.get(1).getB());
+		a2 = Activations.getActivationValues(z2, Layers.get(1).getActivation());
 		
-		
-		//a3 = sigmoid(z3);
 		//z4 = a3.mmul(w.get(2));
-		yHat = sigmoid(z3);
+		yHat = a2;
 		
 		return yHat;
 	}
@@ -178,47 +155,26 @@ public class NeuralNet {
 	public void updateWeights(List<INDArray> newWeights, List<INDArray> newBiases) {
 		double learningFactor = 0.1;
 		
-		this.w.set(0, w.get(0).sub(newWeights.get(0).mul(learningFactor)));
-		this.w.set(1, w.get(1).sub(newWeights.get(1).mul(learningFactor)));
-		//this.w.set(2, w.get(2).sub(newWeights.get(2).mul(learningFactor)));
+		Layers.get(0).updateWeights(newWeights.get(0).mul(learningFactor));
+		Layers.get(1).updateWeights(newWeights.get(1).mul(learningFactor));
 		
-		this.b.set(0, b.get(0).subRowVector(newBiases.get(0).sum(0).mul(learningFactor)));
-		
-		this.b.set(1, b.get(1).subRowVector(newBiases.get(1).sum(0).mul(learningFactor)));
-		
+		Layers.get(0).updateBiases(newBiases.get(0).sum(0).mul(learningFactor));
+		Layers.get(1).updateBiases(newBiases.get(1).sum(0).mul(learningFactor));		
 	}
 
 	public void backPropagate(INDArray cost, INDArray y, INDArray inputs, INDArray yHat) {
 	INDArray d3 = (y.sub(yHat)).mul(-1.0);
-	d3 = d3.mul(sigmoidDerivative(z3));
+	d3 = d3.mul(Activations.getActivationDerivative(z2, Layers.get(1).getActivation()));
+	INDArray dJdW2 = a1.transpose().mmul(d3);
 	
-	INDArray dJdW2 = a2.transpose().mmul(d3);
-	INDArray d2 = d3.mmul(w.get(1).transpose()).mul(sigmoidDerivative(z2));
+	INDArray d2 = d3.mmul(Layers.get(1).getW().transpose());
+	d2 = d2.mul(Activations.getActivationDerivative(z1, Layers.get(0).getActivation()));
 	INDArray dJdW1 = inputs.transpose().mmul(d2);
 	
 	this.updateWeights(Arrays.asList(new INDArray[]{dJdW1, dJdW2}),
 						Arrays.asList(new INDArray[]{d2, d3}));
 	
 }
-	
-//	public void backPropagate(INDArray cost, INDArray y, INDArray inputs, INDArray yHat) {
-//		//\nabla_a C_{MST} = (a^L - E^r)
-//		INDArray d4 = (y.sub(yHat)).mul(-1.0);
-//		d4 = d4.mul(sigmoidDerivative(z4));
-//		
-//		INDArray dJdW3 = a3.transpose().mmul(d4);
-//		
-//		
-//		INDArray d3 = (d4.mmul(w.get(2).transpose())).mul(sigmoidDerivative(z3));
-//		INDArray dJdW2 = a2.transpose().mmul(d3);
-//		INDArray d2 = d3.mmul(w.get(1).transpose()).mul(sigmoidDerivative(z2));
-//		INDArray dJdW1 = inputs.transpose().mmul(d2);
-//		
-//		this.updateWeights(Arrays.asList(new INDArray[]{dJdW1, dJdW2, dJdW3}),
-//							Arrays.asList(new INDArray[]{d2, d3}));
-//		
-//	}
-	
 	
     public INDArray expi(INDArray toExp) {
         INDArray flattened = toExp.ravel();
@@ -229,15 +185,5 @@ public class NeuralNet {
         }
         return flattened.reshape(toExp.shape());
     }
-		
-	public INDArray sigmoid(INDArray z) {
-		INDArray newZ = Nd4j.getExecutioner().execAndReturn(new Sigmoid(z.dup()));
-		return newZ;
-	}
-	
-	public INDArray sigmoidDerivative(INDArray z) {
-		INDArray newZ = Nd4j.getExecutioner().execAndReturn(new Sigmoid(z.dup()).derivative());
-		return newZ;
-	}
 	
 }
