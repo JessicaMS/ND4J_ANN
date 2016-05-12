@@ -59,7 +59,7 @@ public class App
 
 	public static void main( String[] args )  throws Exception
 	{
-		int numEpochs = 250;
+		int numEpochs = 350;
 		int inputLayerSize = 2;
 		int outputLayerSize = 2;
 		int batchSize = 50;
@@ -75,16 +75,12 @@ public class App
 			cost = myANN.batchTrain();
 			if (i % outputFreq == 0) {
 				System.out.println("Epoch: " + i);
-//				System.out.println("Scaled output:");
-//				System.out.println(myANN.getYHat().mul(myANN.getOutputScale()));
 				System.out.println("Total cost: " + (double)cost.sumNumber().doubleValue() + "\n");
 			}
-		
 		}
 		
 		
 		//Evaluation and testing code copied from DL4J examples
-		
 		RecordReader rrEval = readData("src/main/resources/classification/moon_data_eval.csv");
 		DataSetIterator evalIter = new RecordReaderDataSetIterator(rrEval,batchSize, 0, 2);
 		rrEval.reset();
@@ -102,7 +98,6 @@ public class App
         //Print the evaluation statistics
         System.out.println(eval.stats());
 
-        
         
       //------------------------------------------------------------------------------------
         //Training is complete. Code that follows is for plotting the data & predictions only
@@ -124,7 +119,6 @@ public class App
 
                 evalPoints[count][0] = x;
                 evalPoints[count][1] = y;
-
                 count++;
             }
         }
