@@ -19,36 +19,47 @@ public class NeuralNet {
 	DataSetIterator iter;
 	
 	private int inputLayerSize;
-	private int hiddenLayerSize;
-	private int hiddenLayer2Size;
+	private int hiddenLayer1Size;
+	//private int hiddenLayer2Size;
 	private int outputLayerSize;
 	
 	private List<INDArray> w = new ArrayList<INDArray>();
+	private List<INDArray> b = new ArrayList<INDArray>();
 	
-	private INDArray z2, a2, z3, a3, z4;
+	private INDArray z2, a2, z3;//, a3, z4;
 	private INDArray yHat;
 	
 	public NeuralNet(DataSetIterator iter, int inputLayerSize, int outputLayerSize) {
 		//Seed so that each test is deterministic
-		int seedValue = 12345;
+		int seedValue = 12;
 		this.inputLayerSize = inputLayerSize;
-		this.hiddenLayerSize = 6;
-		this.hiddenLayer2Size = 6;
+		this.hiddenLayer1Size = 20;
+		//this.hiddenLayer2Size = 7;
 		this.outputLayerSize = outputLayerSize;
 		
 		this.iter = iter;
 		calculateScale();
 		
-		this.outputScale = outputScale;
 		
-		this.w.add(Nd4j.rand(new int []{inputLayerSize, hiddenLayerSize}, seedValue));
-		this.w.add(Nd4j.rand(new int []{hiddenLayerSize, hiddenLayer2Size}, seedValue));
-		this.w.add(Nd4j.rand(new int []{hiddenLayer2Size, outputLayerSize}, seedValue));
+		this.w.add(Nd4j.rand(new int []{inputLayerSize, hiddenLayer1Size}, seedValue));
+		//this.w.set(0, this.w.get(0).div(Math.sqrt((double)inputLayerSize)));
+		this.w.add(Nd4j.rand(new int []{hiddenLayer1Size, outputLayerSize}, seedValue));
+		//this.w.set(1, this.w.get(1).div(Math.sqrt((double)outputLayerSize)));
+		
+		this.b.add(Nd4j.zeros(hiddenLayer1Size));
+		describeMatrix("b1: ", this.b.get(0));
+		
+		this.b.add(Nd4j.zeros(outputLayerSize));
+		describeMatrix("b2: ", this.b.get(1));
+		//this.w.add(Nd4j.rand(new int []{hiddenLayer2Size, outputLayerSize}, seedValue));
 	}
 	
 	public void calculateScale() {
 		INDArray inputLayer = null;
 		INDArray outputLayer = null;
+		this.inputScale = 0;
+		this.outputScale = 0;
+		
 		iter.reset();
 		try {
 			DataSet next = null;
@@ -58,17 +69,20 @@ public class NeuralNet {
                     break;
 				inputLayer = next.getFeatureMatrix();
 				outputLayer = next.getLabels();
-				if ((Double) outputLayer.maxNumber() > this.outputScale) { 
-					this.outputScale = (Double) outputLayer.maxNumber();
+				if (Math.abs((Double) outputLayer.maxNumber()) > this.outputScale) { 
+					this.outputScale = Math.abs((Double) outputLayer.maxNumber());
 				}
-				if ((Double) inputLayer.maxNumber() > this.inputScale) {
-					this.inputScale = (Double) inputLayer.maxNumber();
+				if (Math.abs((Double) inputLayer.maxNumber()) > this.inputScale) {
+					this.inputScale = Math.abs((Double) inputLayer.maxNumber());
 				}
-				describeMatrix("inputLayer batch:", inputLayer.div(inputScale));
-				describeMatrix("outputLayer batch:", outputLayer);	
+
+				//describeMatrix("inputLayer batch:", inputLayer.div(inputScale));
+				//describeMatrix("outputLayer batch:", outputLayer);	
 			}
 			
-			
+			this.inputScale = 2.5;
+			System.out.println("InputScale: " + this.inputScale);
+			System.out.println("OutputScale: " + this.outputScale);	
 		} catch (Exception e) {
 			System.out.println("Next out of bounds");
 			System.out.println(e.getMessage());
@@ -87,15 +101,12 @@ public class NeuralNet {
 		return this.yHat;
 	}
 	
-	public void testData(double[] testingInput) {
-		INDArray yHat;
+	public INDArray output(INDArray inputLayer) {
+		INDArray predictions;
 		
-		INDArray inputLayer = Nd4j.create(testingInput, new int[]{1, testingInput.length});
 		inputLayer = inputLayer.div(this.inputScale);
-		yHat = forwardProp(inputLayer);
-		System.out.println("Scaled output layer:");
-		System.out.println(yHat.mul(outputScale));
-		System.out.println("");
+		predictions = forwardProp(inputLayer);
+		return predictions;
 	}
 
 	private void describeMatrix(String description, INDArray matrix) {
@@ -103,15 +114,6 @@ public class NeuralNet {
 		System.out.println(""+ matrix.columns() + " x " + matrix.rows() + " Matrix:");
 		System.out.println(matrix);
 	}
-	
-	public void updateWeights(List<INDArray> newWeights) {
-		double learningFactor = 0.01;
-		
-		this.w.set(0, w.get(0).sub(newWeights.get(0).mul(learningFactor)));
-		this.w.set(1, w.get(1).sub(newWeights.get(1).mul(learningFactor)));
-		this.w.set(2, w.get(2).sub(newWeights.get(2).mul(learningFactor)));
-	}
-
 	
 	public INDArray batchTrain() {
 		INDArray inputLayer;
@@ -133,7 +135,7 @@ public class NeuralNet {
             this.yHat = forwardProp(inputLayer);
             
             cost = MSE(y, this.yHat);
-            costPrime(cost, y, inputLayer, this.yHat);
+            backPropagate(cost, y, inputLayer, this.yHat);
             batchCount++;
         }
 		
@@ -141,18 +143,25 @@ public class NeuralNet {
 	}
 	
 	public INDArray forwardProp(INDArray inputLayer) {
-		INDArray yHat;
-		//a1 == inputLayer
-		z2 = inputLayer.mmul(w.get(0));
 
+		INDArray yHat;
+		z2 = inputLayer.mmul(w.get(0));//.addRowVector(b.get(0));
+		z2 = z2.addRowVector(b.get(0));
+		
 		a2 = sigmoid(z2);
-		z3 = a2.mmul(w.get(1));
-		a3 = sigmoid(z3);
-		z4 = a3.mmul(w.get(2));
-		yHat = sigmoid(z4);
+		z3 = a2.mmul(w.get(1));//.addRowVector(b.get(1));
+		//describeMatrix("z3: ", z3);
+		z3 = z3.addRowVector(b.get(1));
+		//describeMatrix("z3 + b2: ", z3);
+		
+		
+		//a3 = sigmoid(z3);
+		//z4 = a3.mmul(w.get(2));
+		yHat = sigmoid(z3);
 		
 		return yHat;
 	}
+
 	
 	public INDArray MSE(INDArray y, INDArray yHat) {
 		
@@ -166,24 +175,49 @@ public class NeuralNet {
 		return J;
 	}
 	
-	public void costPrime(INDArray cost, INDArray y, INDArray inputs, INDArray yHat) {
-		//\nabla_a C_{MST} = (a^L - E^r)
-		INDArray d4 = (y.sub(yHat)).mul(-1.0);
-		d4 = d4.mul(sigmoidDerivative(z4));
+	public void updateWeights(List<INDArray> newWeights, List<INDArray> newBiases) {
+		double learningFactor = 0.1;
 		
-		INDArray dJdW3 = a3.transpose().mmul(d4);
+		this.w.set(0, w.get(0).sub(newWeights.get(0).mul(learningFactor)));
+		this.w.set(1, w.get(1).sub(newWeights.get(1).mul(learningFactor)));
+		//this.w.set(2, w.get(2).sub(newWeights.get(2).mul(learningFactor)));
 		
-		//describeMatrix("sigmoidPrime2(z3): ", sigmoidPrime2(z3));
-		//describeMatrix("sigmoidDerivative(z3): ", sigmoidDerivative(z3));
+		this.b.set(0, b.get(0).subRowVector(newBiases.get(0).sum(0).mul(learningFactor)));
 		
-		INDArray d3 = (d4.mmul(w.get(2).transpose())).mul(sigmoidDerivative(z3));
-		INDArray dJdW2 = a2.transpose().mmul(d3);
-		INDArray d2 = d3.mmul(w.get(1).transpose()).mul(sigmoidDerivative(z2));
-		INDArray dJdW1 = inputs.transpose().mmul(d2);
-		
-		this.updateWeights(Arrays.asList(new INDArray[]{dJdW1, dJdW2, dJdW3}));
+		this.b.set(1, b.get(1).subRowVector(newBiases.get(1).sum(0).mul(learningFactor)));
 		
 	}
+
+	public void backPropagate(INDArray cost, INDArray y, INDArray inputs, INDArray yHat) {
+	INDArray d3 = (y.sub(yHat)).mul(-1.0);
+	d3 = d3.mul(sigmoidDerivative(z3));
+	
+	INDArray dJdW2 = a2.transpose().mmul(d3);
+	INDArray d2 = d3.mmul(w.get(1).transpose()).mul(sigmoidDerivative(z2));
+	INDArray dJdW1 = inputs.transpose().mmul(d2);
+	
+	this.updateWeights(Arrays.asList(new INDArray[]{dJdW1, dJdW2}),
+						Arrays.asList(new INDArray[]{d2, d3}));
+	
+}
+	
+//	public void backPropagate(INDArray cost, INDArray y, INDArray inputs, INDArray yHat) {
+//		//\nabla_a C_{MST} = (a^L - E^r)
+//		INDArray d4 = (y.sub(yHat)).mul(-1.0);
+//		d4 = d4.mul(sigmoidDerivative(z4));
+//		
+//		INDArray dJdW3 = a3.transpose().mmul(d4);
+//		
+//		
+//		INDArray d3 = (d4.mmul(w.get(2).transpose())).mul(sigmoidDerivative(z3));
+//		INDArray dJdW2 = a2.transpose().mmul(d3);
+//		INDArray d2 = d3.mmul(w.get(1).transpose()).mul(sigmoidDerivative(z2));
+//		INDArray dJdW1 = inputs.transpose().mmul(d2);
+//		
+//		this.updateWeights(Arrays.asList(new INDArray[]{dJdW1, dJdW2, dJdW3}),
+//							Arrays.asList(new INDArray[]{d2, d3}));
+//		
+//	}
 	
 	
     public INDArray expi(INDArray toExp) {
