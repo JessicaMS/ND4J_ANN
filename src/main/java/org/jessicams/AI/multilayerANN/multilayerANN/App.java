@@ -2,9 +2,6 @@ package org.jessicams.AI.multilayerANN.multilayerANN;
 
 import java.io.File;
 
-import javax.swing.JFrame;
-import javax.swing.WindowConstants;
-
 import org.canova.api.records.reader.RecordReader;
 import org.canova.api.records.reader.impl.CSVRecordReader;
 import org.canova.api.split.FileSplit;
@@ -12,12 +9,6 @@ import org.deeplearning4j.datasets.canova.RecordReaderDataSetIterator;
 import org.deeplearning4j.datasets.iterator.DataSetIterator;
 import org.deeplearning4j.eval.Evaluation;
 import org.jessicams.AI.multilayerANN.NeuralNet.*;
-import org.jfree.chart.ChartFactory;
-import org.jfree.chart.ChartPanel;
-import org.jfree.chart.JFreeChart;
-import org.jfree.chart.plot.PlotOrientation;
-import org.jfree.data.xy.XYSeries;
-import org.jfree.data.xy.XYSeriesCollection;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.factory.Nd4j;
@@ -59,13 +50,13 @@ public class App
 
 	public static void main( String[] args )  throws Exception
 	{
-		int numEpochs = 350;
+		int numEpochs = 200;
 		int inputLayerSize = 2;
 		int outputLayerSize = 2;
 		int batchSize = 50;
 		int outputFreq = 10;
 
-		RecordReader rr = readData("src/main/resources/classification/moon_data_train.csv");
+		RecordReader rr = readData("src/main/resources/classification/saturn_data_train.csv");
 		DataSetIterator trainIter = new RecordReaderDataSetIterator(rr,batchSize, 0, 2);
 
 		INDArray cost;
@@ -79,9 +70,8 @@ public class App
 			}
 		}
 		
-		
 		//Evaluation and testing code copied from DL4J examples
-		RecordReader rrEval = readData("src/main/resources/classification/moon_data_eval.csv");
+		RecordReader rrEval = readData("src/main/resources/classification/saturn_data_eval.csv");
 		DataSetIterator evalIter = new RecordReaderDataSetIterator(rrEval,batchSize, 0, 2);
 		rrEval.reset();
         System.out.println("Evaluate model....");
@@ -103,10 +93,14 @@ public class App
         //Training is complete. Code that follows is for plotting the data & predictions only
 
         //Plot the data
-        double xMin = -1.5;
-        double xMax = 2.5;
-        double yMin = -1;
-        double yMax = 1.5;
+//        double xMin = -1.5;
+//        double xMax = 2.5;
+//        double yMin = -1;
+//        double yMax = 1.5;
+        double xMin = -15;
+        double xMax = 15;
+        double yMin = -15;
+        double yMax = 15;
 
         //Let's evaluate the predictions at every point in the x/y input space, and plot this in the background
         int nPointsPerAxis = 100;
@@ -127,7 +121,7 @@ public class App
         INDArray predictionsAtXYPoints = myANN.output(allXYPoints).getColumn(0);
 
         //Get all of the training data in a single array, and plot it:
-        rr.initialize(new FileSplit(new File("src/main/resources/classification/moon_data_train.csv")));
+        rr.initialize(new FileSplit(new File("src/main/resources/classification/saturn_data_train.csv")));
         rr.reset();
         int nTrainPoints = 2000;
         trainIter = new RecordReaderDataSetIterator(rr,nTrainPoints,0,2);
@@ -136,7 +130,7 @@ public class App
 
 
         //Get test data, run the test data through the network to generate predictions, and plot those predictions:
-        rrEval.initialize(new FileSplit(new File("src/main/resources/classification/moon_data_eval.csv")));
+        rrEval.initialize(new FileSplit(new File("src/main/resources/classification/saturn_data_eval.csv")));
         rrEval.reset();
         int nTestPoints = 1000;
         evalIter = new RecordReaderDataSetIterator(rrEval,nTestPoints,0,2);
