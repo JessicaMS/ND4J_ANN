@@ -7,7 +7,7 @@ import org.nd4j.linalg.factory.Nd4j;
 public class Activations {
     public enum Function {Tanh,
 				    	Logistic,  
-				    	Rectified_Linear, 
+				    	ReLU, 
 				    	LeakyReLU, 
 				    	ELU};
 	
@@ -18,7 +18,7 @@ public class Activations {
                 return Nd4j.getExecutioner().execAndReturn(new Tanh(x.dup()));
             case Logistic:
             	return Nd4j.getExecutioner().execAndReturn(new Sigmoid(x.dup()));
-            case Rectified_Linear:
+            case ReLU:
             	return Nd4j.getExecutioner().execAndReturn(new RectifedLinear(x.dup()));
             case LeakyReLU:
             	return Nd4j.getExecutioner().execAndReturn(new LeakyReLU(x.dup()));
@@ -35,7 +35,7 @@ public class Activations {
             	return Nd4j.getExecutioner().execAndReturn(new Tanh(x.dup()).derivative());
             case Logistic:
             	return Nd4j.getExecutioner().execAndReturn(new Sigmoid(x.dup()).derivative());
-            case Rectified_Linear:
+            case ReLU:
             	return Nd4j.getExecutioner().execAndReturn(new RectifedLinear(x.dup()).derivative());  
             case LeakyReLU:
             	return Nd4j.getExecutioner().execAndReturn(new LeakyReLU(x.dup()).derivative()); 

@@ -1,40 +1,50 @@
 package org.jessicams.AI.multilayerANN.NeuralNet;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
-import org.canova.api.records.reader.RecordReader;
-import org.deeplearning4j.datasets.canova.RecordReaderDataSetIterator;
 import org.deeplearning4j.datasets.iterator.DataSetIterator;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
-import org.nd4j.linalg.api.ops.impl.transforms.*;
 import org.nd4j.linalg.dataset.DataSet;
 
-
+/**
+ * 
+ * @author Jessica Seibert
+ *
+ */
 public class NeuralNet {
 	private double inputScale, outputScale;
-	int trainingSetCount;
 	DataSetIterator iter;
-
+	private int layerCount;
+	private double learningFactor;
 	
 	private List<NeuronLayer> Layers = new ArrayList<NeuronLayer>();
+	private List<INDArray> z = new ArrayList<INDArray>();
+	private List<INDArray> a = new ArrayList<INDArray>();
 	
-	private INDArray z1, a1, z2, a2;
 	private INDArray yHat;
 	
 	public NeuralNet(DataSetIterator iter, int inputLayerSize, int outputLayerSize) {
 		int seedValue = 12;  //constant seed so that each test is deterministic
-		int hiddenLayer1Size = 20;
+		int hiddenLayer1Size = 5;
+		int hiddenLayer2Size = 5;
+		int hiddenLayer3Size = 5;
 		
+		this.learningFactor = 0.05;
 		this.iter = iter;
 		calculateScale();
 		
 		Layers.add(new NeuronLayer(inputLayerSize, hiddenLayer1Size, seedValue));
-		Layers.get(0).setActivation(Activations.Function.Logistic);
-		Layers.add(new NeuronLayer(hiddenLayer1Size, outputLayerSize, seedValue));
-		Layers.get(1).setActivation(Activations.Function.Logistic);
+		Layers.get(0).setActivation(Activations.Function.ELU);
+		Layers.add(new NeuronLayer(hiddenLayer1Size, hiddenLayer2Size, seedValue));
+		Layers.get(1).setActivation(Activations.Function.ELU);
+		Layers.add(new NeuronLayer(hiddenLayer2Size, hiddenLayer3Size, seedValue));
+		Layers.get(2).setActivation(Activations.Function.ELU);
+		Layers.add(new NeuronLayer(hiddenLayer3Size, outputLayerSize, seedValue));
+		Layers.get(3).setActivation(Activations.Function.Logistic);
+		this.layerCount = Layers.size();
 	}
 	
 	public void calculateScale() {
@@ -84,6 +94,8 @@ public class NeuralNet {
 	public INDArray output(INDArray inputLayer) {
 		INDArray predictions;
 		
+		a.clear();
+		z.clear();
 		inputLayer = inputLayer.div(this.inputScale);
 		predictions = forwardProp(inputLayer);
 		return predictions;
@@ -94,6 +106,7 @@ public class NeuralNet {
 		System.out.println(""+ matrix.columns() + " x " + matrix.rows() + " Matrix:");
 		System.out.println(matrix);
 	}
+	
 	
 	public INDArray batchTrain() {
 		INDArray inputLayer;
@@ -112,67 +125,72 @@ public class NeuralNet {
             inputLayer = inputLayer.div(inputScale);
             y = y.div(outputScale);   //max in matrix y is scale
                        
+            a.clear();
+            z.clear();
             this.yHat = forwardProp(inputLayer);
             
             cost = MSE(y, this.yHat);
-            backPropagate(cost, y, inputLayer, this.yHat);
+            backPropagate(y, this.yHat);
             batchCount++;
         }
 		
 		return cost;
 	}
 	
+	
 	public INDArray forwardProp(INDArray inputLayer) {
-
 		INDArray yHat;
-		z1 = inputLayer.mmul(Layers.get(0).getW());
-		z1 = z1.addRowVector(Layers.get(0).getB());
-		a1 = Activations.getActivationValues(z1, Layers.get(0).getActivation());
+		a.add(inputLayer);
 		
-		z2 = a1.mmul(Layers.get(1).getW());
-		z2 = z2.addRowVector(Layers.get(1).getB());
-		a2 = Activations.getActivationValues(z2, Layers.get(1).getActivation());
+		for(int i = 0; i < Layers.size(); i++) {
+			z.add(a.get(i).mmul(Layers.get(i).getW()));
+			z.set(i, z.get(i).addRowVector(Layers.get(i).getB()));
+			a.add(Activations.getActivationValues(z.get(i), Layers.get(i).getActivation()));
+		}
 		
-		//z4 = a3.mmul(w.get(2));
-		yHat = a2;
+		yHat = a.get(Layers.size());
 		
 		return yHat;
 	}
 
 	
 	public INDArray MSE(INDArray y, INDArray yHat) {
-		
 		INDArray costMatrix = y.sub(yHat);
-		double totalCost;
-		
-		//C_{MST}(W, B, S^r, E^r) = 0.5\sum\limits_j (a^L_j - E^r_j)^2
         INDArray J = (costMatrix.mul(costMatrix)).mul(0.5);
-        //this.describeMatrix("Quadratic Cost per record=", J);
-
 		return J;
 	}
 	
+	public INDArray MSEPrime(INDArray y, INDArray yHat) {
+		return (y.sub(yHat)).mul(-1.0);
+	}
+	
+	
+	
 	public void updateWeights(List<INDArray> newWeights, List<INDArray> newBiases) {
-		double learningFactor = 0.1;
-		
-		Layers.get(0).updateWeights(newWeights.get(0).mul(learningFactor));
-		Layers.get(1).updateWeights(newWeights.get(1).mul(learningFactor));
-		
-		Layers.get(0).updateBiases(newBiases.get(0).sum(0).mul(learningFactor));
-		Layers.get(1).updateBiases(newBiases.get(1).sum(0).mul(learningFactor));		
+		for(int i = 0; i < Layers.size(); i++) {
+			Layers.get(i).updateWeights(newWeights.get(i).mul(learningFactor));		
+			Layers.get(i).updateBiases(newBiases.get(i).sum(0).mul(learningFactor));
+		}
 	}
 
-	public void backPropagate(INDArray cost, INDArray y, INDArray inputs, INDArray yHat) {
-	INDArray d3 = (y.sub(yHat)).mul(-1.0);
-	d3 = d3.mul(Activations.getActivationDerivative(z2, Layers.get(1).getActivation()));
-	INDArray dJdW2 = a1.transpose().mmul(d3);
+	public void backPropagate(INDArray y, INDArray yHat) {
+	List<INDArray> dJdW = new ArrayList<INDArray>();
+	List<INDArray> d = new ArrayList<INDArray>();
+	int bpLayer = this.layerCount -1;
+	d.add(MSEPrime(y, yHat));  //J prime AKA cost prime
 	
-	INDArray d2 = d3.mmul(Layers.get(1).getW().transpose());
-	d2 = d2.mul(Activations.getActivationDerivative(z1, Layers.get(0).getActivation()));
-	INDArray dJdW1 = inputs.transpose().mmul(d2);
+	int i;
+	for(i = 0; i < bpLayer; i++) {
+		d.set(i, d.get(i).mul(Activations.getActivationDerivative(z.get(bpLayer-i), Layers.get(bpLayer-i).getActivation())));
+		dJdW.add(a.get(bpLayer-i).transpose().mmul(d.get(i)));
+		d.add(d.get(i).mmul(Layers.get(bpLayer-i).getW().transpose()));	
+	}
+	d.set(i, d.get(i).mul(Activations.getActivationDerivative(z.get(bpLayer-i), Layers.get(bpLayer-i).getActivation())));
+	dJdW.add(a.get(bpLayer-i).transpose().mmul(d.get(i)));
 	
-	this.updateWeights(Arrays.asList(new INDArray[]{dJdW1, dJdW2}),
-						Arrays.asList(new INDArray[]{d2, d3}));
+	Collections.reverse(dJdW);
+	Collections.reverse(d);
+	this.updateWeights(dJdW, d);
 	
 }
 	
